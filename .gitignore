@@ -50,3 +50,5 @@ go.sum
 vendor/
 
 nvg/
+
+.idea/

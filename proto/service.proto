@@ -2,8 +2,12 @@ syntax = "proto3";
 
 package service;
 
+option go_package = "go_micro_gRPC/proto;service";
+
+// Определение gRPC сервиса для сообщений
 service MessageService {
   rpc SendMessage(MessageRequest) returns (MessageResponse);
+  rpc GetProcessedMessages(EmptyRequest) returns (MessageStats);
 }
 
 message MessageRequest {
@@ -12,4 +16,11 @@ message MessageRequest {
 
 message MessageResponse {
   string status = 1;
+  int32 id = 2; // Добавлено поле ID для идентификатора сообщения
+}
+
+message EmptyRequest {} // Пустой запрос для статистики
+
+message MessageStats {
+  int32 processed_count = 1;
 }

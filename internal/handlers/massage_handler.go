@@ -26,7 +26,12 @@ func PostMessageHandler(producer *kafka.Producer, db *sql.DB) http.HandlerFunc {
 			http.Error(w, "Invalid request payload", http.StatusBadRequest)
 			return
 		}
-		defer r.Body.Close() // Закрываем тело запроса
+		//defer r.Body.Close() // Закрываем тело запроса
+		defer func() {
+			if err := r.Body.Close(); err != nil {
+				log.Printf("Ошибка закрытия тела запроса: %v", err)
+			}
+		}()
 
 		// Получаем ключ сообщения из запроса или генерируем
 		key, ok := message["key"].(string)

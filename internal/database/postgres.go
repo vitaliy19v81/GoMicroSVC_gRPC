@@ -1,18 +1,22 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	_ "github.com/lib/pq"
+	"go_micro_gRPS/config"
 	"log"
 )
 
-func ConnectPostgres() (*sql.DB, error) {
-	connStr := "user=myuser password=secret dbname=messages_1_db sslmode=disable"
-	db, err := sql.Open("postgres", connStr)
+func ConnectPostgres(ctx context.Context) (*sql.DB, error) {
+	cfg := config.LoadConfig()
+
+	db, err := sql.Open("postgres", cfg.ConnStr)
 	if err != nil {
 		return nil, err
 	}
-	if err = db.Ping(); err != nil {
+	if err = db.PingContext(ctx); err != nil {
+		//if err = db.Ping(); err != nil {
 		return nil, err
 	}
 	log.Println("Connected to PostgreSQL")

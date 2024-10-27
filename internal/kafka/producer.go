@@ -13,7 +13,7 @@ type Producer struct {
 }
 
 // NewKafkaProducer инициализирует новый Kafka producer и управляет его жизненным циклом
-func NewKafkaProducer(brokers []string, topic string) *Producer {
+func NewKafkaProducer(ctx context.Context, brokers []string, topic string) *Producer {
 	// Инициализация продюсера напрямую через структуру kafka.Writer
 	producer := &Producer{
 		writer: &kafka.Writer{
@@ -24,6 +24,15 @@ func NewKafkaProducer(brokers []string, topic string) *Producer {
 			Async:       false,                 // Синхронный режим для последовательной отправки
 		},
 	}
+
+	go func() {
+		<-ctx.Done()
+		log.Println("Shutting down Kafka producer...")
+		// producer.Close()
+		if err := producer.Close(); err != nil {
+			log.Printf("Ошибка при закрытии Kafka producer: %v", err)
+		}
+	}()
 
 	return producer
 }
