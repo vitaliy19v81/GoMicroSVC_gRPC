@@ -1,4 +1,4 @@
-package kafka
+package kafka_services
 
 import (
 	"context"
@@ -14,7 +14,7 @@ type Producer struct {
 
 // NewKafkaProducer инициализирует новый Kafka producer и управляет его жизненным циклом
 func NewKafkaProducer(ctx context.Context, brokers []string, topic string) *Producer {
-	// Инициализация продюсера напрямую через структуру kafka.Writer
+	// Инициализация продюсера напрямую через структуру kafka_services.Writer
 	producer := &Producer{
 		writer: &kafka.Writer{
 			Addr:        kafka.TCP(brokers...), // Адреса брокеров Kafka

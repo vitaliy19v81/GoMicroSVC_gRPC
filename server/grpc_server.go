@@ -1,25 +1,24 @@
-package main
+package server
 
 import (
 	"context"
 	"database/sql"
 	"go_micro_gRPS/internal/database"
-	"go_micro_gRPS/internal/kafka"
-	"log"
-	"net"
-
+	"go_micro_gRPS/internal/kafka_services"
 	pb "go_micro_gRPS/proto/go_micro_gRPC/proto"
 	"google.golang.org/grpc"
+	"log"
+	"net"
 )
 
-type server struct {
+type Server struct {
 	pb.UnimplementedMessageServiceServer
 	db            *sql.DB
-	kafkaProducer *kafka.Producer
+	kafkaProducer *kafka_services.Producer
 }
 
 // SendMessage Реализация метода
-func (s *server) SendMessage(ctx context.Context, req *pb.MessageRequest) (*pb.MessageResponse, error) {
+func (s *Server) SendMessage(ctx context.Context, req *pb.MessageRequest) (*pb.MessageResponse, error) {
 	// Сохранение сообщения в базе данных
 	id, err := database.SaveMessage(s.db, req.Content)
 	if err != nil {
@@ -45,7 +44,7 @@ func (s *server) SendMessage(ctx context.Context, req *pb.MessageRequest) (*pb.M
 }
 
 // GetProcessedMessages Реализация метода
-func (s *server) GetProcessedMessages(ctx context.Context, req *pb.EmptyRequest) (*pb.MessageStats, error) {
+func (s *Server) GetProcessedMessages(ctx context.Context, req *pb.EmptyRequest) (*pb.MessageStats, error) {
 	count, err := database.GetProcessedMessageCount(s.db)
 	if err != nil {
 		log.Printf("Error getting processed message count: %v", err)
@@ -58,16 +57,16 @@ func (s *server) GetProcessedMessages(ctx context.Context, req *pb.EmptyRequest)
 }
 
 // Функция запуска gRPC-сервера
-func startGRPCServer(db *sql.DB, producer *kafka.Producer) {
+func StartGRPCServer(db *sql.DB, producer *kafka_services.Producer) {
 	lis, err := net.Listen("tcp", ":50051")
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 
 	s := grpc.NewServer()
-	pb.RegisterMessageServiceServer(s, &server{db: db, kafkaProducer: producer})
+	pb.RegisterMessageServiceServer(s, &Server{db: db, kafkaProducer: producer})
 
-	log.Println("Starting gRPC server on port 50051...")
+	log.Println("Starting gRPC Server on port 50051...")
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}

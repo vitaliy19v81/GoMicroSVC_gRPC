@@ -3,14 +3,19 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
+	"github.com/segmentio/kafka-go"
 	"go_micro_gRPS/config"
 	"go_micro_gRPS/internal/database"
 	"go_micro_gRPS/internal/handlers"
-	"go_micro_gRPS/internal/kafka"
+	"go_micro_gRPS/internal/kafka_services"
+	"go_micro_gRPS/server"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 )
@@ -36,8 +41,14 @@ func main() {
 	brokers := []string{cfg.KafkaBrokers}
 	topic := cfg.KafkaTopic
 
+	// Вызов функции создания топика
+	err = CreateKafkaTopic(brokers[0], topic, 1, 1)
+	if err != nil {
+		log.Fatalf("Ошибка создания топика: %v\n", err)
+	}
+
 	// Инициализация Kafka producer
-	kafkaProducer := kafka.NewKafkaProducer(ctx, brokers, topic)
+	kafkaProducer := kafka_services.NewKafkaProducer(ctx, brokers, topic)
 	defer func() {
 		if err := kafkaProducer.Close(); err != nil {
 			log.Printf("Ошибка закрытия Kafka producer: %v", err)
@@ -45,11 +56,17 @@ func main() {
 	}()
 
 	// Запуск gRPC-сервера
-	go startGRPCServer(db, kafkaProducer)
+	go server.StartGRPCServer(db, kafkaProducer)
 
 	// Настройка маршрутов
+
+	// curl -X POST http://localhost:8080/messages -d '{"content": "Hello, World!"}' -H "Content-Type: application/json"
 	http.HandleFunc("/messages", handlers.PostMessageHandler(kafkaProducer, db))
+	// {"id":"2","status":"message sent successfully"}
+
+	// curl http://localhost:8080/stats
 	http.HandleFunc("/stats", handlers.GetStatsHandler(db))
+	// {"processed_messages":1}
 
 	// Канал для получения системных сигналов для корректного завершения работы
 	quit := make(chan os.Signal, 1)
@@ -73,7 +90,7 @@ func main() {
 	log.Println("Завершение работы сервера...")
 
 	// Контекст для корректного завершения сервера
-	ctxShutdown, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
+	ctxShutdown, cancelShutdown := context.WithTimeout(context.Background(), time.Second)
 	defer cancelShutdown()
 
 	if err := srv.Shutdown(ctxShutdown); err != nil {
@@ -81,4 +98,56 @@ func main() {
 	}
 
 	log.Println("Сервер успешно завершен.")
+}
+
+// CreateKafkaTopic Функция для создания топика в Kafka
+func CreateKafkaTopic(brokerAddress, topic string, numPartitions, replicationFactor int) error {
+	log.Printf("Подключение к брокеру Kafka: %s\n", brokerAddress)
+
+	// Устанавливаем соединение с брокером Kafka
+	conn, err := kafka.Dial("tcp", brokerAddress)
+	if err != nil {
+		return fmt.Errorf("ошибка подключения к Kafka: %v", err)
+	}
+	defer func() {
+		if err := conn.Close(); err != nil {
+			log.Printf("Ошибка закрытия соединения с брокером: %v\n", err)
+		}
+	}()
+
+	// Получаем информацию о контроллере кластера
+	controller, err := conn.Controller()
+	if err != nil {
+		return fmt.Errorf("ошибка получения контроллера Kafka: %v", err)
+	}
+	log.Printf("Контроллер Kafka: %s:%d\n", controller.Host, controller.Port)
+
+	// Устанавливаем соединение с контроллером
+	controllerConn, err := kafka.Dial("tcp", net.JoinHostPort(controller.Host, strconv.Itoa(controller.Port)))
+	if err != nil {
+		return fmt.Errorf("ошибка подключения к контроллеру Kafka: %v", err)
+	}
+	defer func() {
+		if err := controllerConn.Close(); err != nil {
+			log.Printf("Ошибка закрытия соединения с контроллером: %v\n", err)
+		}
+	}()
+
+	// Конфигурация нового топика
+	topicConfigs := []kafka.TopicConfig{
+		{
+			Topic:             topic,
+			NumPartitions:     numPartitions,
+			ReplicationFactor: replicationFactor,
+		},
+	}
+
+	// Создаем топик
+	err = controllerConn.CreateTopics(topicConfigs...)
+	if err != nil {
+		return fmt.Errorf("ошибка создания топика: %v", err)
+	}
+
+	log.Printf("Топик успешно создан: %s\n", topic)
+	return nil
 }

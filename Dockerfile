@@ -1,15 +1,34 @@
-FROM golang:1.20-alpine
+# Используем официальный образ Go для сборки
+FROM golang:1.23-alpine AS builder
 
-WORKDIR /app
+# Устанавливаем рабочую директорию
+WORKDIR /go_micro_gRPS
 
-COPY go.mod ./
-COPY go.sum ./
-RUN go mod download
+# Копируем go.mod и go.sum и скачиваем зависимости
+COPY go.mod go.sum ./
+RUN go env -w GOPROXY=https://goproxy.cn,direct && go mod download
 
-COPY . ./
+# Копируем все файлы проекта
+COPY . .
 
-RUN go build -o /myservice ./cmd/api
+# Сборка gRPC сервера
+RUN go build -o grpc_server ./cmd/api/main.go
 
+# Создаем минимальный образ
+FROM alpine:latest
+
+# Устанавливаем рабочую директорию
+WORKDIR /root/
+
+# Копируем скомпилированный бинарник
+COPY --from=builder /go_micro_gRPS/grpc_server .
+
+# Копируем .env файл
+COPY --from=builder /go_micro_gRPS/.env .
+
+# Экспортируем порт
+EXPOSE 50051
 EXPOSE 8080
 
-CMD ["/myservice"]
+# Запуск gRPC сервера
+CMD ["./grpc_server"]

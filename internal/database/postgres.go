@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	_ "github.com/lib/pq"
 	"go_micro_gRPS/config"
 	"log"
@@ -20,7 +21,31 @@ func ConnectPostgres(ctx context.Context) (*sql.DB, error) {
 		return nil, err
 	}
 	log.Println("Connected to PostgreSQL")
+
+	// Применение миграции для создания таблицы
+	err = applyMigrations(db)
+	if err != nil {
+		return nil, err
+	}
+
 	return db, nil
+}
+
+func applyMigrations(db *sql.DB) error {
+	query := `
+	CREATE TABLE IF NOT EXISTS messages (
+		id SERIAL PRIMARY KEY,
+		content TEXT NOT NULL,
+		status VARCHAR(20) DEFAULT 'pending'
+	);`
+
+	_, err := db.Exec(query)
+	if err != nil {
+		return fmt.Errorf("Ошибка миграции базы данных: %v", err)
+	}
+
+	log.Println("Миграции успешно применены")
+	return nil
 }
 
 func SaveMessage(db *sql.DB, content string) (int, error) {

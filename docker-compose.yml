@@ -1,38 +1,79 @@
-version: '3'
+version: '3.8'
+
 services:
-  db:
-    image: postgres
+  zookeeper:
+    image: wurstmeister/zookeeper:latest
+    container_name: zookeeper-1
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: secret
-      POSTGRES_DB: messages_db
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    restart: always
+    networks:
+      - backend_network
 
   kafka:
-    image: wurstmeister/kafka
-    ports:
-      - "9092:9092"
+    image: wurstmeister/kafka:latest
+    container_name: kafka-1
     environment:
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_BROKER_ID: 0
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092  # Изменено с PLAINTEXT на INSIDE
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092  # Изменено с PLAINTEXT на INSIDE
+      KAFKA_LOG_DIR: /var/lib/kafka/data
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_CREATE_TOPICS: "messages_topic:1:1"
+      KAFKA_MESSAGE_MAX_BYTES: '1000000'
+      KAFKA_LOG_RETENTION_HOURS: '168'
     depends_on:
       - zookeeper
+    restart: always
+    networks:
+      - backend_network
 
-  zookeeper:
-    image: wurstmeister/zookeeper
-    ports:
-      - "2181:2181"
+  postgres:
+    image: postgres:latest
+    container_name: postgres-1
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: messages_1_db
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: always
+    networks:
+      - backend_network
 
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: app-1
+    env_file:
+      - .env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC: messages_topic
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: messages_1_db
+    depends_on:
+      - zookeeper
+      - kafka
+      - postgres
     ports:
       - "8080:8080"
-    depends_on:
-      - db
-      - kafka
+      - "50051:50051"
+    restart: always
+    networks:
+      - backend_network
 
 volumes:
   postgres-data:
+    driver: local
+
+networks:
+  backend_network:
+    driver: bridge

@@ -8,15 +8,15 @@ import (
 )
 
 type Config struct {
-	KafkaBootstrapServers string
-	PostgresUser          string
-	PostgresPassword      string
-	PostgresDB            string
-	PostgresHost          string
-	PostgresPort          string
-	ConnStr               string
-	KafkaBrokers          string
-	KafkaTopic            string
+	//KafkaBootstrapServers string
+	//PostgresUser          string
+	//PostgresPassword      string
+	//PostgresDB            string
+	//PostgresHost          string
+	//PostgresPort          string
+	ConnStr      string
+	KafkaBrokers string
+	KafkaTopic   string
 }
 
 func LoadConfig() Config {

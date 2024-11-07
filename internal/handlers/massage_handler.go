@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"go_micro_gRPS/internal/database"
-	"go_micro_gRPS/internal/kafka"
+	"go_micro_gRPS/internal/kafka_services"
 	"log"
 	"net/http"
 )
@@ -17,7 +17,7 @@ type Message struct {
 }
 
 // PostMessageHandler обрабатывает HTTP POST запросы для отправки сообщений в Kafka
-func PostMessageHandler(producer *kafka.Producer, db *sql.DB) http.HandlerFunc {
+func PostMessageHandler(producer *kafka_services.Producer, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Декодируем тело запроса в переменную
 		var message map[string]interface{}
