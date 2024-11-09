@@ -1,0 +1,62 @@
+definitions:
+  internal_handlers.HTTPMessage:
+    properties:
+      content:
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /api/messages:
+    post:
+      consumes:
+      - application/json
+      description: Отправляет сообщение в Kafka и сохраняет его в базе данных через
+        REST API
+      parameters:
+      - description: Сообщение
+        in: body
+        name: message
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.HTTPMessage'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Отправка сообщения через HTTP
+      tags:
+      - messages
+  /api/stats:
+    get:
+      description: Возвращает количество обработанных сообщений из базы данных
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Получение статистики обработанных сообщений
+      tags:
+      - stats
+swagger: "2.0"

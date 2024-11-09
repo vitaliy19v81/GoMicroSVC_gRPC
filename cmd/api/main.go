@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/segmentio/kafka-go"
+	httpSwagger "github.com/swaggo/http-swagger"
 	"go_micro_gRPS/config"
+	_ "go_micro_gRPS/docs"
 	"go_micro_gRPS/internal/database"
 	"go_micro_gRPS/internal/handlers"
 	"go_micro_gRPS/internal/kafka_services"
@@ -57,6 +59,12 @@ func main() {
 
 	// Запуск gRPC-сервера
 	go server.StartGRPCServer(db, kafkaProducer)
+
+	// Ручка для Swagger UI
+	http.HandleFunc("/swagger/", httpSwagger.WrapHandler)
+
+	http.HandleFunc("/api/messages", handlers.PostMessageHTTPHandler(kafkaProducer, db))
+	http.HandleFunc("/api/stats", handlers.GetStatsHTTPHandler(db))
 
 	// Настройка маршрутов
 
@@ -213,4 +221,5 @@ func CreateKafkaTopic(brokers []string, topic string, numPartitions, replication
 
 	log.Printf("Топик успешно создан: %s\n", topic)
 	return nil
+
 }
