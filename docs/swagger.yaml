@@ -1,5 +1,5 @@
 definitions:
-  internal_handlers.HTTPMessage:
+  handlers.HTTPMessage:
     properties:
       content:
         type: string
@@ -7,6 +7,27 @@ definitions:
 info:
   contact: {}
 paths:
+  /api/consume:
+    get:
+      description: Возвращает сообщения из кафки
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Получение сообщений из кафки
+      tags:
+      - consumer
   /api/messages:
     post:
       consumes:
@@ -19,7 +40,7 @@ paths:
         name: message
         required: true
         schema:
-          $ref: '#/definitions/internal_handlers.HTTPMessage'
+          $ref: '#/definitions/handlers.HTTPMessage'
       produces:
       - application/json
       responses:

@@ -15,6 +15,38 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/consume": {
+            "get": {
+                "description": "Возвращает сообщения из кафки",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "consumer"
+                ],
+                "summary": "Получение сообщений из кафки",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/messages": {
             "post": {
                 "description": "Отправляет сообщение в Kafka и сохраняет его в базе данных через REST API",
@@ -35,7 +67,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handlers.HTTPMessage"
+                            "$ref": "#/definitions/handlers.HTTPMessage"
                         }
                     }
                 ],
@@ -95,7 +127,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "internal_handlers.HTTPMessage": {
+        "handlers.HTTPMessage": {
             "type": "object",
             "properties": {
                 "content": {

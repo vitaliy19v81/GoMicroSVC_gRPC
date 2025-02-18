@@ -1,3 +1,4 @@
+// /GoMicroSVC_gRPC/cmd/api/main.go
 package main
 
 import (
@@ -49,6 +50,16 @@ func main() {
 		log.Fatalf("Ошибка создания топика: %v\n", err)
 	}
 
+	groupID := "consumer_group_1"
+	// Создаём consumer
+	consumer := kafka_services.NewKafkaConsumer(brokers, topic, groupID)
+	defer consumer.Close()
+
+	// Запускаем чтение сообщений в отдельной горутине
+	go func() {
+		consumer.ReadMessages(ctx)
+	}()
+
 	// Инициализация Kafka producer
 	kafkaProducer := kafka_services.NewKafkaProducer(ctx, brokers, topic)
 	defer func() {
@@ -61,20 +72,19 @@ func main() {
 	go server.StartGRPCServer(db, kafkaProducer)
 
 	// Ручка для Swagger UI
+	// export PATH=$PATH:$(go env GOPATH)/bin
+	// swag init -g cmd/api/main.go -o docs
 	http.HandleFunc("/swagger/", httpSwagger.WrapHandler)
 
+	// curl -X POST http://localhost:8080/api/messages -d '{"content": "Hello, World!"}' -H "Content-Type: application/json"
 	http.HandleFunc("/api/messages", handlers.PostMessageHTTPHandler(kafkaProducer, db))
-	http.HandleFunc("/api/stats", handlers.GetStatsHTTPHandler(db))
-
-	// Настройка маршрутов
-
-	// curl -X POST http://localhost:8080/messages -d '{"content": "Hello, World!"}' -H "Content-Type: application/json"
-	http.HandleFunc("/messages", handlers.PostMessageHandler(kafkaProducer, db))
 	// {"id":"2","status":"message sent successfully"}
 
-	// curl http://localhost:8080/stats
-	http.HandleFunc("/stats", handlers.GetStatsHandler(db))
+	// curl http://localhost:8080/api/stats
+	http.HandleFunc("/api/stats", handlers.GetStatsHTTPHandler(db))
 	// {"processed_messages":1}
+
+	http.HandleFunc("/api/consume", handlers.ConsumeMessagesHandler(consumer))
 
 	// Канал для получения системных сигналов для корректного завершения работы
 	quit := make(chan os.Signal, 1)
@@ -107,58 +117,6 @@ func main() {
 
 	log.Println("Сервер успешно завершен.")
 }
-
-//// CreateKafkaTopic Функция для создания топика в Kafka
-//func CreateKafkaTopic(brokerAddress, topic string, numPartitions, replicationFactor int) error {
-//	log.Printf("Подключение к брокеру Kafka: %s\n", brokerAddress)
-//
-//	// Устанавливаем соединение с брокером Kafka
-//	conn, err := kafka.Dial("tcp", brokerAddress)
-//	if err != nil {
-//		return fmt.Errorf("ошибка подключения к Kafka: %v", err)
-//	}
-//	defer func() {
-//		if err := conn.Close(); err != nil {
-//			log.Printf("Ошибка закрытия соединения с брокером: %v\n", err)
-//		}
-//	}()
-//
-//	// Получаем информацию о контроллере кластера
-//	controller, err := conn.Controller()
-//	if err != nil {
-//		return fmt.Errorf("ошибка получения контроллера Kafka: %v", err)
-//	}
-//	log.Printf("Контроллер Kafka: %s:%d\n", controller.Host, controller.Port)
-//
-//	// Устанавливаем соединение с контроллером
-//	controllerConn, err := kafka.Dial("tcp", net.JoinHostPort(controller.Host, strconv.Itoa(controller.Port)))
-//	if err != nil {
-//		return fmt.Errorf("ошибка подключения к контроллеру Kafka: %v", err)
-//	}
-//	defer func() {
-//		if err := controllerConn.Close(); err != nil {
-//			log.Printf("Ошибка закрытия соединения с контроллером: %v\n", err)
-//		}
-//	}()
-//
-//	// Конфигурация нового топика
-//	topicConfigs := []kafka.TopicConfig{
-//		{
-//			Topic:             topic,
-//			NumPartitions:     numPartitions,
-//			ReplicationFactor: replicationFactor,
-//		},
-//	}
-//
-//	// Создаем топик
-//	err = controllerConn.CreateTopics(topicConfigs...)
-//	if err != nil {
-//		return fmt.Errorf("ошибка создания топика: %v", err)
-//	}
-//
-//	log.Printf("Топик успешно создан: %s\n", topic)
-//	return nil
-//}
 
 // CreateKafkaTopic создает новый топик в Kafka
 func CreateKafkaTopic(brokers []string, topic string, numPartitions, replicationFactor int) error {
@@ -223,3 +181,65 @@ func CreateKafkaTopic(brokers []string, topic string, numPartitions, replication
 	return nil
 
 }
+
+// Настройка маршрутов
+
+//// curl -X POST http://localhost:8080/messages -d '{"content": "Hello, World!"}' -H "Content-Type: application/json"
+//http.HandleFunc("/messages", handlers.PostMessageHandler(kafkaProducer, db))
+//// {"id":"2","status":"message sent successfully"}
+//
+//// curl http://localhost:8080/stats
+//http.HandleFunc("/stats", handlers.GetStatsHandler(db))
+//// {"processed_messages":1}
+
+//// CreateKafkaTopic Функция для создания топика в Kafka
+//func CreateKafkaTopic(brokerAddress, topic string, numPartitions, replicationFactor int) error {
+//	log.Printf("Подключение к брокеру Kafka: %s\n", brokerAddress)
+//
+//	// Устанавливаем соединение с брокером Kafka
+//	conn, err := kafka.Dial("tcp", brokerAddress)
+//	if err != nil {
+//		return fmt.Errorf("ошибка подключения к Kafka: %v", err)
+//	}
+//	defer func() {
+//		if err := conn.Close(); err != nil {
+//			log.Printf("Ошибка закрытия соединения с брокером: %v\n", err)
+//		}
+//	}()
+//
+//	// Получаем информацию о контроллере кластера
+//	controller, err := conn.Controller()
+//	if err != nil {
+//		return fmt.Errorf("ошибка получения контроллера Kafka: %v", err)
+//	}
+//	log.Printf("Контроллер Kafka: %s:%d\n", controller.Host, controller.Port)
+//
+//	// Устанавливаем соединение с контроллером
+//	controllerConn, err := kafka.Dial("tcp", net.JoinHostPort(controller.Host, strconv.Itoa(controller.Port)))
+//	if err != nil {
+//		return fmt.Errorf("ошибка подключения к контроллеру Kafka: %v", err)
+//	}
+//	defer func() {
+//		if err := controllerConn.Close(); err != nil {
+//			log.Printf("Ошибка закрытия соединения с контроллером: %v\n", err)
+//		}
+//	}()
+//
+//	// Конфигурация нового топика
+//	topicConfigs := []kafka.TopicConfig{
+//		{
+//			Topic:             topic,
+//			NumPartitions:     numPartitions,
+//			ReplicationFactor: replicationFactor,
+//		},
+//	}
+//
+//	// Создаем топик
+//	err = controllerConn.CreateTopics(topicConfigs...)
+//	if err != nil {
+//		return fmt.Errorf("ошибка создания топика: %v", err)
+//	}
+//
+//	log.Printf("Топик успешно создан: %s\n", topic)
+//	return nil
+//}

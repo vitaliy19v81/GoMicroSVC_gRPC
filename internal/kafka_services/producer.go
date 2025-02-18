@@ -1,3 +1,4 @@
+// Package kafka_services /GoMicroSVC_gRPC/internal/kafka_services/producer.go
 package kafka_services
 
 import (
