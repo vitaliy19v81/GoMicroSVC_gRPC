@@ -4,8 +4,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
-	"github.com/segmentio/kafka-go"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"go_micro_gRPS/config"
 	_ "go_micro_gRPS/docs"
@@ -14,11 +12,9 @@ import (
 	"go_micro_gRPS/internal/kafka_services"
 	"go_micro_gRPS/server"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 )
@@ -45,7 +41,7 @@ func main() {
 	topic := cfg.KafkaTopic
 
 	// Вызов функции создания топика
-	err = CreateKafkaTopic(brokers, topic, 1, 1) // brokers[0]
+	err = kafka_services.CreateKafkaTopic(brokers, topic, 1, 1) // brokers[0]
 	if err != nil {
 		log.Fatalf("Ошибка создания топика: %v\n", err)
 	}
@@ -118,69 +114,74 @@ func main() {
 	log.Println("Сервер успешно завершен.")
 }
 
-// CreateKafkaTopic создает новый топик в Kafka
-func CreateKafkaTopic(brokers []string, topic string, numPartitions, replicationFactor int) error {
-	var conn *kafka.Conn
-	var err error
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	// Пытаемся подключиться к каждому брокеру из списка
-	for _, brokerAddress := range brokers {
-		conn, err = kafka.Dial("tcp", brokerAddress)
-		if err == nil {
-			log.Printf("Успешное подключение к брокеру Kafka: %s\n", brokerAddress)
-			defer func() {
-				if err := conn.Close(); err != nil {
-					log.Printf("Ошибка закрытия соединения с брокером: %v\n", err)
-				}
-			}()
-			break
-		} else {
-			log.Printf("Не удалось подключиться к брокеру Kafka: %s, пробуем следующий", brokerAddress)
-		}
-	}
+// Рабочий код
+//// CreateKafkaTopic создает новый топик в Kafka
+//func CreateKafkaTopic(brokers []string, topic string, numPartitions, replicationFactor int) error {
+//	var conn *kafka.Conn
+//	var err error
+//
+//	// Пытаемся подключиться к каждому брокеру из списка
+//	for _, brokerAddress := range brokers {
+//		conn, err = kafka.Dial("tcp", brokerAddress)
+//		if err == nil {
+//			log.Printf("Успешное подключение к брокеру Kafka: %s\n", brokerAddress)
+//			defer func() {
+//				if err := conn.Close(); err != nil {
+//					log.Printf("Ошибка закрытия соединения с брокером: %v\n", err)
+//				}
+//			}()
+//			break
+//		} else {
+//			log.Printf("Не удалось подключиться к брокеру Kafka: %s, пробуем следующий", brokerAddress)
+//		}
+//	}
+//
+//	// Если не удалось подключиться ни к одному брокеру
+//	if conn == nil {
+//		return fmt.Errorf("не удалось подключиться ни к одному из брокеров Kafka: %v", brokers)
+//	}
+//
+//	// Получаем контроллер кластера
+//	controller, err := conn.Controller()
+//	if err != nil {
+//		return fmt.Errorf("ошибка получения контроллера Kafka: %v", err)
+//	}
+//	log.Printf("Контроллер Kafka: %s:%d\n", controller.Host, controller.Port)
+//
+//	// Подключаемся к контроллеру для создания топика
+//	controllerConn, err := kafka.Dial("tcp", net.JoinHostPort(controller.Host, strconv.Itoa(controller.Port)))
+//	if err != nil {
+//		return fmt.Errorf("ошибка подключения к контроллеру Kafka: %v", err)
+//	}
+//	defer func() {
+//		if err := controllerConn.Close(); err != nil {
+//			log.Printf("Ошибка закрытия соединения с контроллером: %v\n", err)
+//		}
+//	}()
+//
+//	// Конфигурация для создания нового топика
+//	topicConfigs := []kafka.TopicConfig{
+//		{
+//			Topic:             topic,
+//			NumPartitions:     numPartitions,
+//			ReplicationFactor: replicationFactor,
+//		},
+//	}
+//
+//	// Создаем топик
+//	err = controllerConn.CreateTopics(topicConfigs...)
+//	if err != nil {
+//		return fmt.Errorf("ошибка создания топика: %v", err)
+//	}
+//
+//	log.Printf("Топик успешно создан: %s\n", topic)
+//	return nil
+//
+//}
 
-	// Если не удалось подключиться ни к одному брокеру
-	if conn == nil {
-		return fmt.Errorf("не удалось подключиться ни к одному из брокеров Kafka: %v", brokers)
-	}
-
-	// Получаем контроллер кластера
-	controller, err := conn.Controller()
-	if err != nil {
-		return fmt.Errorf("ошибка получения контроллера Kafka: %v", err)
-	}
-	log.Printf("Контроллер Kafka: %s:%d\n", controller.Host, controller.Port)
-
-	// Подключаемся к контроллеру для создания топика
-	controllerConn, err := kafka.Dial("tcp", net.JoinHostPort(controller.Host, strconv.Itoa(controller.Port)))
-	if err != nil {
-		return fmt.Errorf("ошибка подключения к контроллеру Kafka: %v", err)
-	}
-	defer func() {
-		if err := controllerConn.Close(); err != nil {
-			log.Printf("Ошибка закрытия соединения с контроллером: %v\n", err)
-		}
-	}()
-
-	// Конфигурация для создания нового топика
-	topicConfigs := []kafka.TopicConfig{
-		{
-			Topic:             topic,
-			NumPartitions:     numPartitions,
-			ReplicationFactor: replicationFactor,
-		},
-	}
-
-	// Создаем топик
-	err = controllerConn.CreateTopics(topicConfigs...)
-	if err != nil {
-		return fmt.Errorf("ошибка создания топика: %v", err)
-	}
-
-	log.Printf("Топик успешно создан: %s\n", topic)
-	return nil
-
-}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Настройка маршрутов
 
